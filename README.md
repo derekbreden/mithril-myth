@@ -28,3 +28,9 @@ The difference is when nested, mithril's m.prop would not require this additiona
 let foo = m.prop(['foo'])
 foo()[0]() // 'foo'
 ```
+
+All the way down:
+```
+let foo = m.prop([{bar:'foo'}])
+foo()[0]().bar() // 'foo'
+```
