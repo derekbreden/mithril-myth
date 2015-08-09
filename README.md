@@ -34,3 +34,11 @@ All the way down:
 let foo = m.prop([{bar:'foo'}])
 foo()[0]().bar() // 'foo'
 ```
+
+What this allows, is modifying a sub property individually:
+```
+let foo = m.prop([{bar:'foo'}])
+foo()[0]().bar() // 'foo'
+foo()[0]().bar('bar') // 'bar'
+foo()[0]().bar() // 'bar'
+```
