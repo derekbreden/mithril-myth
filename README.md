@@ -1,80 +1,30 @@
-[![JS.ORG](https://img.shields.io/badge/js.org-mithril-ffb400.svg?style=flat-square)](http://js.org)
-[![Join the chat at https://gitter.im/lhorie/mithril.js](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/lhorie/mithril.js?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
-[![Build Status](https://travis-ci.org/lhorie/mithril.js.svg?branch=master)](https://travis-ci.org/lhorie/mithril.js)
-[![JS.ORG](https://img.shields.io/badge/js.org-mithril-ffb400.svg?style=flat-square)](http://js.org)
+# Mithril-Myth
 
-# Mithril
+Forked from [mithril](http://lhorie.github.io/mithril)
 
-A Javascript Framework for Building Brilliant Applications
+## Differences
 
-See the [website](http://lhorie.github.io/mithril) for documentation
+- Adds a m.debug capture of controllers as they are instantiated
+- Different m.route strategy
+- Different m.prop strategy
 
-There's also a [blog](http://lhorie.github.io/mithril-blog) and a [mailing list](https://groups.google.com/forum/#!forum/mithriljs)
+### m.route
 
----
+In mithril, a route change will redraw everything.
+In mithril-myth, a route change is treated only as a m.redraw.strategy('diff').
 
-## What is Mithril?
+### m.prop
 
-Mithril is a client-side MVC framework - a tool to organize code in a way that is easy to think about and to maintain.
+In mithril-myth m.prop everything is a function.
 
-### Light-weight
-
-- Only 5kb gzipped, no dependencies
-- Small API, small learning curve
-
-### Robust
-
-- Safe-by-default templates
-- Hierarchical MVC via components
-
-### Fast
-
-- Virtual DOM diffing and compilable templates
-- Intelligent auto-redrawing system
-
----
-
-## Sample code
-
-```javascript
-//namespace
-var app = {};
-
-//model
-app.PageList = function() {
-	return m.request({method: "GET", url: "pages.json"});
-};
-
-//controller
-app.controller = function() {
-	var pages = app.PageList();
-	return {
-		pages: pages,
-		rotate: function() {
-			pages().push(pages().shift());
-		}
-	}
-};
-
-//view
-app.view = function(ctrl) {
-	return [
-		ctrl.pages().map(function(page) {
-			return m("a", {href: page.url}, page.title);
-		}),
-		m("button", {onclick: ctrl.rotate}, "Rotate links")
-	];
-};
-
-
-//initialize
-m.module(document.getElementById("example"), app);
+It is the same as mithril in this simple case:
+```
+let foo = m.prop('foo')
+foo() // 'foo'
 ```
 
----
-
-### Learn more
-
-- [Tutorial](http://lhorie.github.io/mithril/getting-started.html)
-- [Differences from Other Frameworks](http://lhorie.github.io/mithril/comparison.html)
-- [Benchmarks](http://lhorie.github.io/mithril/benchmarks.html)
+The difference is when nested, mithril's m.prop would not require this additional function call:
+```
+let foo = m.prop(['foo'])
+foo()[0]() // 'foo'
+```
