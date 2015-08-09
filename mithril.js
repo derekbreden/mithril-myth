@@ -71,6 +71,7 @@ var m = (function app(window, undefined) {
 		
 		return cell
 	}
+	m.debug = {}
 	function build(parentElement, parentTag, parentCache, parentIndex, data, cached, shouldReattach, index, editable, namespace, configs) {
 		//`build` is a recursive function that manages creation/diffing/removal of DOM elements based on comparison between `data` and `cached`
 		//the diff algorithm can be summarized as this:
@@ -279,6 +280,10 @@ var m = (function app(window, undefined) {
 			else if (data.tag === "math") namespace = "http://www.w3.org/1998/Math/MathML";
 			
 			if (isNew) {
+
+				if(controllers.length&&!m.debug[index])
+					m.debug[index] = controllers
+
 				if (data.attrs.is) node = namespace === undefined ? $document.createElement(data.tag, data.attrs.is) : $document.createElementNS(namespace, data.tag, data.attrs.is);
 				else node = namespace === undefined ? $document.createElement(data.tag) : $document.createElementNS(namespace, data.tag);
 				cached = {
