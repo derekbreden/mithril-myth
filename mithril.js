@@ -530,27 +530,83 @@ var m = (function app(window, undefined) {
 		return value
 	};
 
-	function gettersetter(store) {
-		var prop = function() {
-			if (arguments.length) store = arguments[0];
-			return store
-		};
-
-		prop.toJSON = function() {
-			return store
-		};
-
-		return prop
-	}
-
-	m.prop = function (store) {
-		//note: using non-strict equality check here because we're checking if store is null OR undefined
-		if (((store != null && type.call(store) === OBJECT) || typeof store === FUNCTION) && typeof store.then === FUNCTION) {
-			return propify(store)
-		}
-
-		return gettersetter(store)
-	};
+	var just_set_or_modelize_a_few = function(s,new_s){
+    for(var i in new_s){
+      if(typeof s === "function")
+        s[i](new_s[i])
+      else 
+        s[i] = m.prop(new_s[i])
+    }
+    return s
+  }
+  var set_or_modelize = function(s,new_s){
+    if(typeof s === "function")
+      s(new_s)
+    else 
+      s = m.prop(new_s)()
+    return s
+  }
+  //
+  // Model Creator
+  m.prop = function(s){
+    // s is state
+    //
+    // make each item within a model as well
+    if(typeof s === "object")
+      for(var i in s)
+        s[i] = m.prop(s[i])
+    //
+    // Main function for getting and setting
+    var get_set = function(new_s){
+      if (new_s !== undefined){
+        if(
+          !Array.isArray(s)
+          && typeof new_s === "object"
+          && typeof s === "object"
+        )
+          s = just_set_or_modelize_a_few(s,new_s)
+        else
+          s = set_or_modelize(s,new_s)
+        m.redraw()
+        get_set.emit('change')
+      }
+      return s
+    }
+    //
+    // Model raw data accessors
+    get_set.toJSON = function(){return s}
+    get_set.readOnly = function(){return JSON.parse(JSON.stringify(s))}
+    //
+    // Array methods which modelize new items
+    var ks = ['push','unshift']
+    for(var i in ks)
+      get_set[ks[i]] = function(new_s){
+        s[ks[i]](m.prop(new_s))
+        m.redraw()
+        get_set.emit('change')
+      }
+    //
+    // Events
+    var listeners = {}
+    get_set.on = function(eventName, fun){
+      listeners[eventName] = listeners[eventName] || []
+      listeners[eventName].push(fun)
+    }
+    get_set.off = function(eventName, fun){
+      for(var i in listeners[eventName]){
+        if(fun === listeners[eventName][i])
+          delete listeners[eventName][i]
+      }
+    }
+    get_set.emit = function(eventName, data){
+      if(listeners[eventName])
+        for(var i in listeners[eventName]){
+          listeners[eventName][i](data)
+        }
+    }
+    //
+    return get_set
+  }
 
 	var roots = [], components = [], controllers = [], lastRedrawId = null, lastRedrawCallTime = 0, computePreRedrawHook = null, computePostRedrawHook = null, prevented = false, topComponent, unloaders = [];
 	var FRAME_BUDGET = 16; //60 frames per second = 1 call per 16 ms
@@ -676,176 +732,13 @@ var m = (function app(window, undefined) {
 	};
 
 	//routing
-	var modes = {pathname: "", hash: "#", search: "?"};
-	var redirect = noop, routeParams, currentRoute, isDefaultRoute = false;
-	m.route = function() {
-		//m.route()
-		if (arguments.length === 0) return currentRoute;
-		//m.route(el, defaultRoute, routes)
-		else if (arguments.length === 3 && type.call(arguments[1]) === STRING) {
-			var root = arguments[0], defaultRoute = arguments[1], router = arguments[2];
-			redirect = function(source) {
-				var path = currentRoute = normalizeRoute(source);
-				if (!routeByValue(root, router, path)) {
-					if (isDefaultRoute) throw new Error("Ensure the default route matches one of the routes defined in m.route")
-					isDefaultRoute = true
-					m.route(defaultRoute, true)
-					isDefaultRoute = false
-				}
-			};
-			var listener = m.route.mode === "hash" ? "onhashchange" : "onpopstate";
-			window[listener] = function() {
-				var path = $location[m.route.mode]
-				if (m.route.mode === "pathname") path += $location.search
-				if (currentRoute != normalizeRoute(path)) {
-					redirect(path)
-				}
-			};
-			computePreRedrawHook = setScroll;
-			window[listener]()
-		}
-		//config: m.route
-		else if (arguments[0].addEventListener || arguments[0].attachEvent) {
-			var element = arguments[0];
-			var isInitialized = arguments[1];
-			var context = arguments[2];
-			var vdom = arguments[3];
-			element.href = (m.route.mode !== 'pathname' ? $location.pathname : '') + modes[m.route.mode] + vdom.attrs.href;
-			if (element.addEventListener) {
-				element.removeEventListener("click", routeUnobtrusive);
-				element.addEventListener("click", routeUnobtrusive)
-			}
-			else {
-				element.detachEvent("onclick", routeUnobtrusive);
-				element.attachEvent("onclick", routeUnobtrusive)
-			}
-		}
-		//m.route(route, params, shouldReplaceHistoryEntry)
-		else if (type.call(arguments[0]) === STRING) {
-			var oldRoute = currentRoute;
-			currentRoute = arguments[0];
-			var args = arguments[1] || {}
-			var queryIndex = currentRoute.indexOf("?")
-			var params = queryIndex > -1 ? parseQueryString(currentRoute.slice(queryIndex + 1)) : {}
-			for (var i in args) params[i] = args[i]
-			var querystring = buildQueryString(params)
-			var currentPath = queryIndex > -1 ? currentRoute.slice(0, queryIndex) : currentRoute
-			if (querystring) currentRoute = currentPath + (currentPath.indexOf("?") === -1 ? "?" : "&") + querystring;
-
-			var shouldReplaceHistoryEntry = (arguments.length === 3 ? arguments[2] : arguments[1]) === true || oldRoute === arguments[0];
-
-			if (window.history.pushState) {
-				computePreRedrawHook = setScroll
-				computePostRedrawHook = function() {
-					window.history[shouldReplaceHistoryEntry ? "replaceState" : "pushState"](null, $document.title, modes[m.route.mode] + currentRoute);
-				};
-				redirect(modes[m.route.mode] + currentRoute)
-			}
-			else {
-				$location[m.route.mode] = currentRoute
-				redirect(modes[m.route.mode] + currentRoute)
-			}
-		}
-	};
-	m.route.param = function(key) {
-		if (!routeParams) throw new Error("You must call m.route(element, defaultRoute, routes) before calling m.route.param()")
-		return routeParams[key]
-	};
-	m.route.mode = "search";
-	function normalizeRoute(route) {
-		return route.slice(modes[m.route.mode].length)
-	}
-	function routeByValue(root, router, path) {
-		routeParams = {};
-
-		var queryStart = path.indexOf("?");
-		if (queryStart !== -1) {
-			routeParams = parseQueryString(path.substr(queryStart + 1, path.length));
-			path = path.substr(0, queryStart)
-		}
-
-		// Get all routes and check if there's
-		// an exact match for the current path
-		var keys = Object.keys(router);
-		var index = keys.indexOf(path);
-		if(index !== -1){
-			m.mount(root, router[keys [index]]);
-			return true;
-		}
-
-		for (var route in router) {
-			if (route === path) {
-				m.mount(root, router[route]);
-				return true
-			}
-
-			var matcher = new RegExp("^" + route.replace(/:[^\/]+?\.{3}/g, "(.*?)").replace(/:[^\/]+/g, "([^\\/]+)") + "\/?$");
-
-			if (matcher.test(path)) {
-				path.replace(matcher, function() {
-					var keys = route.match(/:[^\/]+/g) || [];
-					var values = [].slice.call(arguments, 1, -2);
-					for (var i = 0, len = keys.length; i < len; i++) routeParams[keys[i].replace(/:|\./g, "")] = decodeURIComponent(values[i])
-					m.mount(root, router[route])
-				});
-				return true
-			}
-		}
-	}
-	function routeUnobtrusive(e) {
-		e = e || event;
-		if (e.ctrlKey || e.metaKey || e.which === 2) return;
-		if (e.preventDefault) e.preventDefault();
-		else e.returnValue = false;
-		var currentTarget = e.currentTarget || e.srcElement;
-		var args = m.route.mode === "pathname" && currentTarget.search ? parseQueryString(currentTarget.search.slice(1)) : {};
-		while (currentTarget && currentTarget.nodeName.toUpperCase() != "A") currentTarget = currentTarget.parentNode
-		m.route(currentTarget[m.route.mode].slice(modes[m.route.mode].length), args)
-	}
-	function setScroll() {
-		if (m.route.mode != "hash" && $location.hash) $location.hash = $location.hash;
-		else window.scrollTo(0, 0)
-	}
-	function buildQueryString(object, prefix) {
-		var duplicates = {}
-		var str = []
-		for (var prop in object) {
-			var key = prefix ? prefix + "[" + prop + "]" : prop
-			var value = object[prop]
-			var valueType = type.call(value)
-			var pair = (value === null) ? encodeURIComponent(key) :
-				valueType === OBJECT ? buildQueryString(value, key) :
-				valueType === ARRAY ? value.reduce(function(memo, item) {
-					if (!duplicates[key]) duplicates[key] = {}
-					if (!duplicates[key][item]) {
-						duplicates[key][item] = true
-						return memo.concat(encodeURIComponent(key) + "=" + encodeURIComponent(item))
-					}
-					return memo
-				}, []).join("&") :
-				encodeURIComponent(key) + "=" + encodeURIComponent(value)
-			if (value !== undefined) str.push(pair)
-		}
-		return str.join("&")
-	}
-	function parseQueryString(str) {
-		if (str.charAt(0) === "?") str = str.substring(1);
-		
-		var pairs = str.split("&"), params = {};
-		for (var i = 0, len = pairs.length; i < len; i++) {
-			var pair = pairs[i].split("=");
-			var key = decodeURIComponent(pair[0])
-			var value = pair.length == 2 ? decodeURIComponent(pair[1]) : null
-			if (params[key] != null) {
-				if (type.call(params[key]) !== ARRAY) params[key] = [params[key]]
-				params[key].push(value)
-			}
-			else params[key] = value
-		}
-		return params
-	}
-	m.route.buildQueryString = buildQueryString
-	m.route.parseQueryString = parseQueryString
+	window.onpopstate = function(){
+    m.redraw()
+  }
+  m.route = function(e){
+    e.preventDefault()
+    window.history.pushState(null,document.title,e.target.getAttribute('href'))
+  }
 	
 	function reset(root) {
 		var cacheKey = getCellCacheKey(root);
