@@ -578,13 +578,13 @@ var m = (function app(window, undefined) {
     get_set.data = function(){return JSON.parse(JSON.stringify(s))}
     //
     // Array methods which modelize new items
-    var ks = ['push','unshift']
+    var ks = ['push','unshift','shift','pop']
     for(var i in ks)
-      get_set[ks[i]] = function(new_s){
+      (function(i){get_set[ks[i]] = function(new_s){
         s[ks[i]](m.prop(new_s))
         m.redraw()
         get_set.emit('change')
-      }
+      }})(i)
     //
     // Events
     var listeners = {}
