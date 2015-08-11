@@ -575,7 +575,7 @@ var m = (function app(window, undefined) {
     //
     // Model raw data accessors
     get_set.toJSON = function(){return s}
-    get_set.readOnly = function(){return JSON.parse(JSON.stringify(s))}
+    get_set.data = function(){return JSON.parse(JSON.stringify(s))}
     //
     // Array methods which modelize new items
     var ks = ['push','unshift']
