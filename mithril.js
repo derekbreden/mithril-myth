@@ -629,7 +629,7 @@ var m = (function app(window, undefined) {
 	m.component = function(component) {
 		return parameterize(component, [].slice.call(arguments, 1))
 	}
-	m.mount = m.module = function(root, component) {
+	m.mount = function(root, component) {
 		if (!root) throw new Error("Please ensure the DOM element exists before rendering a template into it.");
 		var index = roots.indexOf(root);
 		if (index < 0) index = roots.length;
