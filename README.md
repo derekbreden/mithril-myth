@@ -4,7 +4,6 @@ Forked from [mithril](http://lhorie.github.io/mithril)
 
 ## Differences
 
-- Adds a m.debug capture of controllers as they are instantiated
 - Different m.route strategy
 - Different m.prop strategy
 
