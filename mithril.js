@@ -574,15 +574,19 @@ var m = (function app(window, undefined) {
     get_set.data = function(){return JSON.parse(JSON.stringify(s))}
     //
     // Array methods which modelize new items
-    var ks = ['push','unshift','shift','pop','splice']
+    var ks = ['push','unshift','shift','pop','splice','indexOf']
     for(var i in ks)
       (function(i){get_set[ks[i]] = function(new_s,a,b){
+				var to_return
 				if(ks[i] === 'splice')
-					b?s[ks[i]](new_s,a,m.prop(b)):s[ks[i]](new_s,a)
+					to_return = b?s[ks[i]](new_s,a,m.prop(b)):s[ks[i]](new_s,a)
+				else if(ks[i] === 'indexOf')
+					to_return = get_set.data()[ks[i]](new_s)
 				else
-        	s[ks[i]](m.prop(new_s))
+	        to_return = s[ks[i]](m.prop(new_s))
         m.redraw()
         get_set.emit('change')
+				return to_return
       }})(i)
     //
     // Events
